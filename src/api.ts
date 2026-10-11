@@ -15,6 +15,20 @@ interface ForecastResponse {
   current?: { temperature_2m?: number };
 }
 
+interface DailyResponse {
+  daily?: {
+    time?: string[];
+    temperature_2m_max?: number[];
+    temperature_2m_min?: number[];
+  };
+}
+
+export interface DailyForecast {
+  date: string;
+  max: number;
+  min: number;
+}
+
 export async function searchCity(name: string): Promise<GeoCity | null> {
   const url = `${GEOCODING_URL}?name=${encodeURIComponent(name)}&count=1&language=es&format=json`;
   const res = await fetch(url);
@@ -46,4 +60,40 @@ export async function fetchTemperature(
     throw new Error("La API no devolvió temperatura");
   }
   return temp;
+}
+
+export async function fetchDailyForecast(
+  latitude: number,
+  longitude: number,
+  unit: "C" | "F",
+  days = 7,
+): Promise<DailyForecast[]> {
+  const unitParam = unit === "F" ? "&temperature_unit=fahrenheit" : "";
+  const url =
+    `${FORECAST_URL}?latitude=${latitude}&longitude=${longitude}` +
+    `&daily=temperature_2m_max,temperature_2m_min&forecast_days=${days}&timezone=auto${unitParam}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as DailyResponse;
+  const { time, temperature_2m_max: max, temperature_2m_min: min } = data.daily ?? {};
+  if (
+    !time ||
+    !max ||
+    !min ||
+    time.length !== max.length ||
+    time.length !== min.length ||
+    time.length === 0
+  ) {
+    throw new Error("La API no devolvió el pronóstico completo");
+  }
+  return time.map((date, i) => {
+    const maxTemp = max[i];
+    const minTemp = min[i];
+    if (maxTemp === undefined || minTemp === undefined) {
+      throw new Error("La API no devolvió el pronóstico completo");
+    }
+    return { date, max: maxTemp, min: minTemp };
+  });
 }

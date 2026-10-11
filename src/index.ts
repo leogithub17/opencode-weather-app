@@ -1,8 +1,14 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { fetchTemperature, searchCity } from "./api.ts";
+import { fetchDailyForecast, fetchTemperature, searchCity } from "./api.ts";
 import { loadData, saveData, type WeatherData } from "./storage.ts";
-import { formatTemperature, printError, printMenu, printSuccess } from "./ui.ts";
+import {
+  formatTemperature,
+  printDailyForecast,
+  printError,
+  printMenu,
+  printSuccess,
+} from "./ui.ts";
 
 type Questioner = { question: (prompt: string) => Promise<string> };
 
@@ -143,6 +149,35 @@ async function toggleUnit(data: WeatherData): Promise<void> {
   printSuccess(`Unidad de temperatura: °${data.unit}`);
 }
 
+async function dailyForecast(data: WeatherData, ask: Questioner): Promise<void> {
+  if (data.cities.length === 0) {
+    printError("No hay ciudades registradas.");
+    return;
+  }
+  listCities(data);
+  const answer = (await ask.question("  Número de ciudad (0 para cancelar): ")).trim();
+  const n = readIndex(answer, data.cities.length);
+  if (n === null) {
+    printError("Opción no válida.");
+    return;
+  }
+  if (n === 0) {
+    console.log("  Cancelado.");
+    return;
+  }
+  const city = data.cities[n - 1];
+  if (!city) {
+    printError("Opción no válida.");
+    return;
+  }
+  try {
+    const forecast = await fetchDailyForecast(city.latitude, city.longitude, data.unit);
+    printDailyForecast(city.name, forecast, data.unit);
+  } catch (err) {
+    printError(`No se pudo consultar el pronóstico: ${String(err)}`);
+  }
+}
+
 async function handleOption(option: string, data: WeatherData, ask: Questioner): Promise<void> {
   switch (option) {
     case "1":
@@ -159,6 +194,9 @@ async function handleOption(option: string, data: WeatherData, ask: Questioner):
       break;
     case "5":
       await setDefaultCity(data, ask);
+      break;
+    case "6":
+      await dailyForecast(data, ask);
       break;
     case "8":
       await toggleUnit(data);

@@ -1,4 +1,5 @@
 import type { Unit, WeatherData } from "./storage.ts";
+import type { DailyForecast } from "./api.ts";
 
 const RESET = "\x1b[0m";
 const CYAN = "\x1b[36m";
@@ -21,6 +22,7 @@ export function printMenu(data: WeatherData): void {
   console.log("  3. Buscar y agregar ciudad");
   console.log("  4. Eliminar ciudad");
   console.log("  5. Establecer ciudad default");
+  console.log("  6. Pronóstico de 7 días");
   console.log(`  8. Ajustes (°${data.unit})`);
   console.log("  9. Salir");
   console.log(LINE);
@@ -28,6 +30,24 @@ export function printMenu(data: WeatherData): void {
 
 export function formatTemperature(temp: number, unit: Unit): string {
   return colorize(`${temp.toFixed(1)}°${unit}`, YELLOW);
+}
+
+export function printDailyForecast(
+  cityName: string,
+  forecast: DailyForecast[],
+  unit: Unit,
+): void {
+  console.log(LINE);
+  console.log(colorize(`  PRONÓSTICO DE 7 DÍAS — ${cityName}`, CYAN));
+  console.log(LINE);
+  for (const day of forecast) {
+    const [y, m, d] = day.date.split("-");
+    const shortDate = d !== undefined && m !== undefined ? `${d}/${m}` : day.date;
+    const max = formatTemperature(day.max, unit);
+    const min = formatTemperature(day.min, unit);
+    console.log(`  ${shortDate}  Máx: ${max}  Mín: ${min}`);
+  }
+  console.log(LINE);
 }
 
 export function printError(message: string): void {
